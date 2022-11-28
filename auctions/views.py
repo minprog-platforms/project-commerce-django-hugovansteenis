@@ -9,14 +9,31 @@ from .models import User
 
 
 def index(request):
-    return render(request, "auctions/index.html")
+    all_active_listings = Listing.objects.filter(is_active = True)
+    all_categories = Category.objects.all()
+    return render(request, "auctions/index.html", {
+        "listings": all_active_listings,
+        "categories": all_categories
+    })
+
+
+def categories(request):
+    if request.method == "POST":
+        form_category = request.POST['category']
+        normal_category = Category.objects.get(nameCategory = form_category)
+        all_active_listings = Listing.objects.filter(is_active = True, category = normal_category)
+        all_categories = Category.objects.all()
+        return render(request, "auctions/index.html", {
+            "listings": all_active_listings,
+            "categories": all_categories
+        })
 
 
 def create_listing(request):
     if request.method == "GET":
-        allCategories = Category.objects.all()
+        all_categories = Category.objects.all()
         return render(request, "auctions/create.html", {
-            "categories": allCategories
+            "categories": all_categories
         })
     else:
         title = request.POST["title"]
@@ -24,15 +41,16 @@ def create_listing(request):
         price = request.POST["price"]
         image = request.POST["image"]
         category = request.POST["category"]
-
         user = request.user
+
+        data_category = Category.objects.get(nameCategory = category)
 
         new_listing = Listing(
             title = title,
             description = description,
             image = image,
-            price = price,
-            category = category,
+            price = float(price),
+            category = data_category,
             user = user
         )
         new_listing.save()
