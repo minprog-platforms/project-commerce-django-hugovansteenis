@@ -1,10 +1,35 @@
 {% extends "auctions/layout.html" %}
 
 {% block body %}
+    {% if alert == True %}
+        <div class="alert alert-info" role="alert">
+        {{ message }}
+        </div>
+    {% endif %}
+    {% if not listing.is_active and user == listing.price.user %}
+        <div class="alert alert-info" role="alert">
+            Congrats! You have won this beautiful one of a kind item.
+        </div>
+    {% endif %}
+
     <h1>{{ listing.title }}</h1>
     <img src="{{ listing.image }}" alt="{{ listing.title}}" style="width: 18rem">
     <p>{{ listing.description }}</p>
-    <h3>€{{ listing.price }}</h3>
+    <h3>Price</h3>
+    <p>€<b>{{ listing.price }}</b></p>
+    {% if user.is_authenticated %}
+    <form action="{% url 'bid' id=listing.id %}" method="POST">
+        {% csrf_token %}
+        <input type="number" min="0" name="new_bid" placeholder="Enter Bid" style="width: 500px">
+        <button type="submit" class="btn btn-info">Add</button>
+    </form>
+    {% endif %}
+    {% if is_owner and listing.is_active == True %}
+        <form action="{% url 'stop_bidding' id=listing.id %}" method="POST">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Close Bidding</button>
+        </form>
+    {% endif %}
     <h2>Details</h2>
     <ul>
         <li>Owner: <b>{{ listing.user }}</b></li>
@@ -23,5 +48,23 @@
             </form>
         {% endif %}
     {% endif %}
-
+    <br>
+    <h2>Comments</h2>
+    {% if user.is_authenticated %}
+        <form action="{% url 'comment' id=listing.id %}" method="POST">
+            {% csrf_token %}
+            <input type="text" name="new_comment" placeholder="Enter Comment" style="width: 500px">
+            <button type="submit" class="btn btn-info">Add</button>
+        </form>
+    {% endif %}
+    <br>
+    <ul class="list-group">
+    {% for comment in comments %}
+        <li class="list-group-item list-group-item-info">
+            <span class="badge badge-primary badge-pill" style="text-align:center">{{ comment.date }}</span>
+            {{ comment.text }}
+            <p style="font-size: 10px; margin-left: 6px">Posted by: <b>{{ comment.user }}</b></p>
+        </li>
+    {% endfor %}
+    </ul>
 {% endblock %}

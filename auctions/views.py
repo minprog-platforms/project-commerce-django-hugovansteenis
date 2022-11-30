@@ -3,17 +3,84 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
-from .models import User, Category, Listing
+from .models import User, Category, Listing, Comment, Bid
+import datetime
 
 from .models import User
 
 
-def listing(request, id):
-    data_listings= Listing.objects.get(pk=id)
+def stop_bidding(request, id):
+    data_listings = Listing.objects.get(pk=id)
+    data_listings.is_active = False
+    data_listings.save(0)
+    is_owner = request.user.username == data_listings.user.username
     product_in_watchlist = request.user in data_listings.watchlist.all()
+    all_comments = Comment.objects.filter(listing = data_listings)
     return render(request, "auctions/listing.html", {
         "listing": data_listings,
-        "watchlist": product_in_watchlist
+        "message": "Bidding was stopped, the auction has finished.",
+        "watchlist": product_in_watchlist,
+        "comments": all_comments,
+        "alert": True,
+        "is_owner": is_owner
+    })
+
+
+def bid(request, id):
+    new_bid = int(request.POST['new_bid'])
+    data_listings = Listing.objects.get(pk=id)
+    product_in_watchlist = request.user in data_listings.watchlist.all()
+    all_comments = Comment.objects.filter(listing = data_listings)
+    is_owner = request.user.username == data_listings.user.username
+    if new_bid > data_listings.price.bid:
+        updated_bid = Bid(user=request.user, bid=new_bid)
+        updated_bid.save()
+        data_listings.price = updated_bid
+        data_listings.save()
+        return render(request, "auctions/listing.html", {
+            "listing": data_listings,
+            "message": "Bid was succesful!",
+            "watchlist": product_in_watchlist,
+            "comments": all_comments,
+            "alert": True,
+            "is_owner": is_owner
+        })
+    else:
+        return render(request, "auctions/listing.html", {
+            "listing": data_listings,
+            "message": "Bid failed, your bid was too low.",
+            "watchlist": product_in_watchlist,
+            "comments": all_comments,
+            "alert": True,
+            "is_owner": is_owner
+        })
+
+
+def comment(request, id):
+    user = request.user
+    data_listings = Listing.objects.get(pk=id)
+    comment = request.POST['new_comment']
+
+    new_comment = Comment(
+        user = user,
+        listing = data_listings,
+        text = comment,
+        date = datetime.date.today()
+    )
+
+    new_comment.save()
+    return HttpResponseRedirect(reverse("listing", args=(id, )))
+
+def listing(request, id):
+    data_listings = Listing.objects.get(pk=id)
+    product_in_watchlist = request.user in data_listings.watchlist.all()
+    all_comments = Comment.objects.filter(listing = data_listings)
+    is_owner = request.user.username == data_listings.user.username
+    return render(request, "auctions/listing.html", {
+        "listing": data_listings,
+        "watchlist": product_in_watchlist,
+        "comments": all_comments,
+        "is_owner": is_owner
     })
 
 
@@ -77,11 +144,14 @@ def create_listing(request):
 
         data_category = Category.objects.get(nameCategory = category)
 
+        bid = Bid(bid=float(price), user=user)
+        bid.save()
+
         new_listing = Listing(
             title = title,
             description = description,
             image = image,
-            price = float(price),
+            price = bid,
             category = data_category,
             user = user
         )
